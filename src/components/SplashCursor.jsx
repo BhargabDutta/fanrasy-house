@@ -8,11 +8,11 @@ function SplashCursor({
   DENSITY_DISSIPATION = 5,
   VELOCITY_DISSIPATION = 3,
   PRESSURE = 0.1,
-  PRESSURE_ITERATIONS = 8,
+  PRESSURE_ITERATIONS = 4,
   CURL = 2,
   SPLAT_RADIUS = 0.15,
   SPLAT_FORCE = 3000,
-  SHADING = true,
+  SHADING = false,
   COLOR_UPDATE_SPEED = 0,
   BACK_COLOR = { r: 0.5, g: 0, b: 0 },
   TRANSPARENT = true
@@ -68,7 +68,9 @@ function SplashCursor({
         depth: false,
         stencil: false,
         antialias: false,
-        preserveDrawingBuffer: false
+        preserveDrawingBuffer: false,
+        powerPreference: 'high-performance',
+        desynchronized: true
       };
       let gl = canvas.getContext('webgl2', params);
       const isWebGL2 = !!gl;
@@ -671,6 +673,7 @@ function SplashCursor({
     let lastUpdateTime = Date.now();
     let colorUpdateTimer = 0.0;
 
+    
     function updateFrame() {
       const dt = calcDeltaTime();
       if (resizeCanvas()) initFramebuffers();
@@ -944,10 +947,15 @@ function SplashCursor({
       else return { width: min, height: max };
     }
 
-    function scaleByPixelRatio(input) {
-      const pixelRatio = window.devicePixelRatio || 1;
-      return Math.floor(input * pixelRatio);
-    }
+    // function scaleByPixelRatio(input) {
+    //   const pixelRatio = window.devicePixelRatio || 1;
+    //   return Math.floor(input * pixelRatio);
+    // }
+    const MAX_DPR = /Mobi|Android/i.test(navigator.userAgent) ? 1.2 : 1.5;
+function scaleByPixelRatio(input) {
+  const pixelRatio = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+  return Math.floor(input * pixelRatio);
+}
 
     function hashCode(s) {
       if (s.length === 0) return 0;
@@ -972,7 +980,7 @@ function SplashCursor({
       let posX = scaleByPixelRatio(e.clientX);
       let posY = scaleByPixelRatio(e.clientY);
       let color = generateColor();
-      updateFrame();
+      // updateFrame();
       updatePointerMoveData(pointer, posX, posY, color);
       document.body.removeEventListener('mousemove', handleFirstMouseMove);
     });
@@ -991,7 +999,7 @@ function SplashCursor({
       for (let i = 0; i < touches.length; i++) {
         let posX = scaleByPixelRatio(touches[i].clientX);
         let posY = scaleByPixelRatio(touches[i].clientY);
-        updateFrame();
+        // updateFrame();
         updatePointerDownData(pointer, touches[i].identifier, posX, posY);
       }
       document.body.removeEventListener('touchstart', handleFirstTouchStart);
