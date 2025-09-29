@@ -68,9 +68,7 @@ function SplashCursor({
         depth: false,
         stencil: false,
         antialias: false,
-        preserveDrawingBuffer: false,
-        powerPreference: 'high-performance',
-        desynchronized: true
+        preserveDrawingBuffer: false
       };
       let gl = canvas.getContext('webgl2', params);
       const isWebGL2 = !!gl;
@@ -673,7 +671,6 @@ function SplashCursor({
     let lastUpdateTime = Date.now();
     let colorUpdateTimer = 0.0;
 
-    
     function updateFrame() {
       const dt = calcDeltaTime();
       if (resizeCanvas()) initFramebuffers();
