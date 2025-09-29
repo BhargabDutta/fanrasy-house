@@ -54,6 +54,15 @@ function SplashCursor({
       TRANSPARENT
     };
 
+     // (#6) Lower simulation quality on mobile *before* framebuffers are created
+ const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+ if (isMobile) {
+   config.SIM_RESOLUTION = Math.min(config.SIM_RESOLUTION, 48);
+   config.DYE_RESOLUTION = Math.min(config.DYE_RESOLUTION, 256);
+   // optional: also relax iterations for phones
+   config.PRESSURE_ITERATIONS = Math.min(config.PRESSURE_ITERATIONS ?? 4, 3);
+ }
+
     let pointers = [new pointerPrototype()];
 
     const { gl, ext } = getWebGLContext(canvas);
@@ -783,11 +792,21 @@ function SplashCursor({
       dye.swap();
     }
 
-    function render(target) {
-      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      gl.enable(gl.BLEND);
-      drawDisplay(target);
-    }
+    // function render(target) {
+    //   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    //   gl.enable(gl.BLEND);
+    //   drawDisplay(target);
+    // }
+     function render(target) {
+         if (target == null) {
+           gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+           gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+           gl.disable(gl.BLEND);            // no accumulation
+           gl.clearColor(0.0, 0.0, 0.0, 0); // transparent clear
+           gl.clear(gl.COLOR_BUFFER_BIT);
+         }
+         drawDisplay(target);
+       }
 
     function drawDisplay(target) {
       let width = target == null ? gl.drawingBufferWidth : target.width;
@@ -804,17 +823,7 @@ function SplashCursor({
       splat(pointer.texcoordX, pointer.texcoordY, dx, dy, pointer.color);
     }
 
-    function clickSplat(pointer) {
-      const color = generateColor();
-      color.r *= 10.0;
-      color.g *= 10.0;
-      color.b *= 10.0;
-      let dx = 10 * (Math.random() - 0.5);
-      let dy = 30 * (Math.random() - 0.5);
-      splat(pointer.texcoordX, pointer.texcoordY, dx, dy, color);
-    }
-
-    function splat(x, y, dx, dy, color) {
+    function splatVelocityOnly(x, y, dx, dy) {
       splatProgram.bind();
       gl.uniform1i(splatProgram.uniforms.uTarget, velocity.read.attach(0));
       gl.uniform1f(splatProgram.uniforms.aspectRatio, canvas.width / canvas.height);
@@ -823,12 +832,38 @@ function SplashCursor({
       gl.uniform1f(splatProgram.uniforms.radius, correctRadius(config.SPLAT_RADIUS / 100.0));
       blit(velocity.write);
       velocity.swap();
+    }
 
+    function clickSplat(pointer) {
+      const color = generateColor();
+      color.r *= 2.0;
+      color.g *= 2.0;
+      color.b *= 2.0;
+      let dx = 10 * (Math.random() - 0.5);
+      let dy = 30 * (Math.random() - 0.5);
+      // splat(pointer.texcoordX, pointer.texcoordY, dx, dy, color);
+      splatVelocityOnly(pointer.texcoordX, pointer.texcoordY, dx, dy);
+    }
+
+    function splat(x, y, dx, dy, color) {
+      splatProgram.bind();
+      // velocity splat (keep as-is)
+      gl.uniform1i(splatProgram.uniforms.uTarget, velocity.read.attach(0));
+      gl.uniform1f(splatProgram.uniforms.aspectRatio, canvas.width / canvas.height);
+      gl.uniform2f(splatProgram.uniforms.point, x, y);
+      gl.uniform3f(splatProgram.uniforms.color, dx, dy, 0.0);
+      gl.uniform1f(splatProgram.uniforms.radius, correctRadius(config.SPLAT_RADIUS / 100.0));
+      blit(velocity.write);
+      velocity.swap();
+
+       // dye splat (saturate in shader)
       gl.uniform1i(splatProgram.uniforms.uTarget, dye.read.attach(0));
       gl.uniform3f(splatProgram.uniforms.color, color.r, color.g, color.b);
       blit(dye.write);
       dye.swap();
     }
+
+    
 
     function correctRadius(radius) {
       let aspectRatio = canvas.width / canvas.height;
@@ -944,15 +979,10 @@ function SplashCursor({
       else return { width: min, height: max };
     }
 
-    // function scaleByPixelRatio(input) {
-    //   const pixelRatio = window.devicePixelRatio || 1;
-    //   return Math.floor(input * pixelRatio);
-    // }
-    const MAX_DPR = /Mobi|Android/i.test(navigator.userAgent) ? 1.2 : 1.5;
-function scaleByPixelRatio(input) {
-  const pixelRatio = Math.min(window.devicePixelRatio || 1, MAX_DPR);
-  return Math.floor(input * pixelRatio);
-}
+    function scaleByPixelRatio(input) {
+      const pixelRatio = window.devicePixelRatio || 1;
+      return Math.floor(input * pixelRatio);
+    }
 
     function hashCode(s) {
       if (s.length === 0) return 0;
